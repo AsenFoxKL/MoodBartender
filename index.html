@@ -49,13 +49,11 @@
         }
     </script>
     <style>
-        /* 隐藏滚动条 */
-        .hide-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .hide-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
+        /* 我们移除了 hide-scrollbar 类，
+           现在使用浏览器原生的滚动条，以确保在任何设备上都能滑动查看内容。
+        */
+        body {
+            background-color: black; /* 防止滚动触底时的白色背景闪烁 */
         }
     </style>
 </head>
@@ -65,7 +63,7 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        // --- 图标组件 (内联 SVG 以避免依赖问题) ---
+        // --- 图标组件 ---
         const IconBase = ({ children, size = 24, className = "" }) => (
             <svg 
                 xmlns="http://www.w3.org/2000/svg" 
@@ -165,13 +163,11 @@
         ];
 
         function App() {
-          const [status, setStatus] = useState('idle'); // idle, analyzing, result
+          const [status, setStatus] = useState('idle'); 
           const [progress, setProgress] = useState(0);
           const [currentPrompt, setCurrentPrompt] = useState(ANALYSIS_STEPS[0]);
-          const [moodValue, setMoodValue] = useState(50); // 0 - 100
+          const [moodValue, setMoodValue] = useState(50); 
           const [result, setResult] = useState(null);
-          
-          // Audio simulation refs
           const [bars, setBars] = useState(Array(12).fill(10));
 
           useEffect(() => {
@@ -190,7 +186,6 @@
                 }
 
                 setMoodValue(prev => Math.max(10, Math.min(90, prev + (Math.random() - 0.5) * 20)));
-                
                 setBars(prev => prev.map(() => Math.random() * 40 + 10));
 
                 if (p >= 100) {
@@ -222,7 +217,6 @@
             setMoodValue(50);
           };
 
-          // Styles injected via style tag in main render
           const styles = `
             @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500&display=swap');
             
@@ -231,17 +225,31 @@
           `;
 
           return (
-            <div className="min-h-screen bg-black text-white font-sans-ui overflow-hidden relative selection:bg-purple-500 selection:text-white">
+            /* 修改点 1: 移除 overflow-hidden, 将 h-screen 改为 min-h-screen
+               这样页面可以根据内容自动长高，浏览器会出现原生滚动条。
+               selection 样式保留，增加 text-white 确保可读性。
+            */
+            <div className="min-h-screen bg-black text-white font-sans-ui relative selection:bg-purple-500 selection:text-white">
               <style>{styles}</style>
               
-              <div className="absolute inset-0 pointer-events-none overflow-hidden">
+              {/* 修改点 2: 背景光效改为 fixed (固定定位)
+                 这样当你往下滑动时，背景光不会跑掉，始终充满窗口。
+              */}
+              <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
                  <div className={`absolute top-[-10%] left-[-10%] w-[600px] h-[600px] rounded-full bg-purple-900/30 blur-[120px] transition-all duration-[3000ms] ${status === 'analyzing' ? 'scale-110 bg-blue-900/40' : ''}`}></div>
                  <div className={`absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-indigo-900/20 blur-[100px] transition-all duration-[3000ms] ${status === 'analyzing' ? 'scale-125 bg-purple-800/30' : ''}`}></div>
               </div>
 
-              <div className="relative z-10 max-w-md mx-auto h-screen flex flex-col">
+              {/* 修改点 3: 主容器结构调整
+                 - 改为 min-h-screen 以确保至少占满一屏
+                 - 使用 flex flex-col 让内容自然流式布局
+                 - z-10 确保内容在背景之上
+                 - max-w-md mx-auto 保持手机 App 的宽度感，但在大屏上居中
+              */}
+              <div className="relative z-10 max-w-md mx-auto min-h-screen flex flex-col">
                 
-                <header className="flex justify-between items-center p-6 opacity-80">
+                {/* Header 保持在流中，跟随滚动 */}
+                <header className="flex justify-between items-center p-6 opacity-80 flex-none">
                   <div className="text-xs tracking-[0.2em] uppercase text-gray-400">Mood Bartender</div>
                   {status === 'result' && (
                      <button onClick={reset} className="p-2 rounded-full hover:bg-white/10 transition-colors">
@@ -250,12 +258,18 @@
                   )}
                 </header>
 
-                <main className="flex-1 flex flex-col items-center justify-center relative w-full">
+                {/* 修改点 4: 主要内容区域
+                   - 移除 h-full, 允许内容撑开高度
+                   - 使用 py-8 增加上下边距，防止内容贴边
+                   - justify-center 只在非结果页(内容较少)时启用，结果页(内容长)则自然排列
+                */}
+                <main className={`flex-1 flex flex-col items-center w-full px-4 pb-12 ${status !== 'result' ? 'justify-center' : ''}`}>
                   
+                  {/* IDLE / ANALYZING 状态 (内容相对较短，可以居中) */}
                   {status !== 'result' && (
                     <div className="w-full flex flex-col items-center animate-in fade-in duration-700">
                       
-                      <div className="relative w-64 h-80 mb-12">
+                      <div className="relative w-64 h-80 mb-12 flex-shrink-0">
                         <div className="absolute inset-0 rounded-[3rem] border border-white/10 bg-gradient-to-b from-white/5 to-white/10 backdrop-blur-sm overflow-hidden shadow-2xl shadow-purple-900/20 ring-1 ring-white/20">
                           
                           <div 
@@ -353,8 +367,9 @@
                     </div>
                   )}
 
+                  {/* RESULT 状态 (内容较长，自然向下延伸) */}
                   {status === 'result' && result && (
-                    <div className="w-full h-full flex flex-col items-center animate-in slide-in-from-bottom-10 fade-in duration-700 pb-20 overflow-y-auto hide-scrollbar">
+                    <div className="w-full flex flex-col items-center animate-in slide-in-from-bottom-10 fade-in duration-700">
                       
                       <div className="text-center mb-6 mt-4">
                          <h2 className="text-3xl font-serif-display italic text-transparent bg-clip-text bg-gradient-to-br from-white via-white to-gray-400 mb-2">
@@ -363,7 +378,7 @@
                          <p className="text-sm tracking-widest text-gray-400 uppercase">{result.subName}</p>
                       </div>
 
-                      <div className="relative w-32 h-32 mb-8 animate-float">
+                      <div className="relative w-32 h-32 mb-8 animate-float flex-shrink-0">
                           <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-white/5 to-white/10 border border-white/10 backdrop-blur-md flex items-center justify-center shadow-2xl shadow-[color:var(--shadow-color)]" style={{ '--shadow-color': result.liquidColor }}>
                              <div className="w-24 h-24 rounded-full opacity-80 mix-blend-screen overflow-hidden relative">
                                 <div className={`absolute inset-0 bg-gradient-to-t ${result.color} opacity-80`}></div>
@@ -436,7 +451,7 @@
                         </div>
                       </div>
 
-                      <div className="mt-8 flex gap-4 w-full px-8">
+                      <div className="mt-8 flex gap-4 w-full px-8 pb-8">
                          <button className="flex-1 py-3 bg-white text-black rounded-xl font-medium text-sm hover:bg-gray-200 transition-colors">
                             保存到酒单
                          </button>
@@ -445,7 +460,7 @@
                          </button>
                       </div>
                       
-                      <button onClick={reset} className="mt-6 text-xs text-gray-500 underline hover:text-gray-300 transition-colors">
+                      <button onClick={reset} className="mb-10 text-xs text-gray-500 underline hover:text-gray-300 transition-colors">
                         再调一杯 (重新分析)
                       </button>
 
